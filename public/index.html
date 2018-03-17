@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+  </head>
+  <body>
+    <script src="libs/jquery.min.js"></script>
+    <!--
+    <button onclick="updateNodes()">nodes</button>
+    <button onclick="updateLinks()">links</button>
+  -->
+    <a href="/add-node" target="json-win">add-node</a>
+    <pre id="outgoing"></pre>
+    <div id="viz"></div>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+<script type="text/javascript">
+
+var w = 420, h = 420;
+
+var sampleSVG = d3.select("#viz")
+        .append("svg")
+        .attr("width", w)
+        .attr("height", h);
+
+ltree_data2 = [{name:"A"},{name:"B"},{name:"C"},{name:"D"},{name:"E"}];
+ltree_data =  [{name:"X"},{name:"Y"},{name:"Z"}];
+
+function circle_x(i, len){
+  angle = i * (Math.PI * 2) / len;
+  return 200 + 100 * Math.sin(angle);
+}
+
+function circle_y(i, len){
+  angle = i * (Math.PI * 2) / len;
+  return 200 - 100 * Math.cos(angle);
+}
+
+function colorCircle(d,i){
+  return "red";
+}
+
+/*
+    sampleSVG.selectAll("circle")
+      .data(ltree_data)
+      .enter().append("circle")
+      .attr("class", "circle")
+      .style("stroke", "gray")
+      .style("fill", "red")
+      .on("mouseover", function(){d3.select(this).style("fill", "aliceblue");})
+      .on("mouseout", function(){d3.select(this).style("fill", "white");})
+      .on('click', (d, i)=>{console.log(d, i);})
+      .attr("r", 40)
+      .attr("cx", (d,i)=>{return circle_x(i,ltree_data.length);} )
+      .attr("cy", (d,i)=>{return circle_y(i,ltree_data.length);} );
+
+      sampleSVG.selectAll(".text")
+        .data(ltree_data)
+        .enter().append("text")
+        .attr("class", "text")
+        .attr("font-family","sans-serif")
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "middle")
+        .text( (d,i)=>{return d.name;} )
+        .attr("dx", (d,i)=>{return circle_x(i,ltree_data.length);} )
+        .attr("dy", (d,i)=>{return circle_y(i,ltree_data.length);} );
+*/
+
+var links_data = [
+  {source:0, dest:2},
+  {source:1, dest:3}
+];
+
+/*var links_data = [
+  {source:0, dest:2}
+];*/
+
+var links_data2 = [
+  {source:0, dest:1},
+  {source:0, dest:2},
+  {source:0, dest:3},
+  {source:0, dest:4}
+];
+
+
+      function updateNodes(){
+        console.log("update");
+        p.send( {nodes:ltree_data2, links:links_data2 });
+        update_nodes( ltree_data2, links_data2 );
+      }
+
+      function updateLinks(){
+        console.log("update");
+        p.send("update links");
+        update_links( ltree_data2, links_data2 );
+      }
+
+      function update_nodes( new_data, links ){
+
+
+            var fillFn = (d)=>{
+              var colour = "white";
+              switch(d.state){
+                case "ready":
+                  colour = "yellow"; break;
+                case "connected":
+                  colour = "green"; break;
+              };
+              return colour;
+            }
+
+            sampleSVG.selectAll("circle")
+            .data(new_data).exit().remove();
+
+            sampleSVG.selectAll("circle")
+              .data(new_data)
+              .attr("class", "circle")
+              .style("stroke", "gray")
+              .style("fill", fillFn)
+              .on("mouseover", function(){
+                //d3.select(this).style("fill", "aliceblue");
+              })
+              .on("mouseout", function(){
+                //d3.select(this).style("fill", "white");
+              })
+              .on('click', (d, i)=>{console.log(d, i);})
+              .attr("r", 40)
+              .transition()
+              .duration(500)
+              .attr("cx", (d,i)=>{return circle_x(i,new_data.length);} )
+              .attr("cy", (d,i)=>{return circle_y(i,new_data.length);} );
+
+              sampleSVG.selectAll("circle")
+                .data(new_data)
+                .enter().append("circle")
+                .attr("class", "circle")
+                .style("stroke", "gray")
+                .style("fill", fillFn)
+                .on("mouseover", function(d){
+                  //d3.select(this).style("fill", "aliceblue");
+                  console.log("d", d);
+                })
+                .on("mouseout", function(){
+                  //d3.select(this).style("fill", "white");
+                })
+                .on('click', (d, i)=>{console.log(d, i);})
+                .attr("r", 40)
+                .transition()
+                .duration(500)
+                .attr("cx", (d,i)=>{return circle_x(i,new_data.length);} )
+                .attr("cy", (d,i)=>{return circle_y(i,new_data.length);} );
+
+
+
+              sampleSVG.selectAll("text")
+              .data(new_data).exit().remove();
+
+              sampleSVG.selectAll("text")
+                .data(new_data)
+                .attr("class", "text")
+                .attr("font-family","sans-serif")
+                .attr("text-anchor", "middle")
+                .attr("dominant-baseline", "middle")
+                .transition()
+                .duration(500)
+                .text( (d,i)=>{return d.name;} )
+                .attr("dx", (d,i)=>{return circle_x(i,new_data.length);} )
+                .attr("dy", (d,i)=>{return circle_y(i,new_data.length);} );
+
+                sampleSVG.selectAll("text")
+                  .data(new_data)
+                  .enter().append("text")
+                  .attr("class", "text")
+                  .attr("font-family","sans-serif")
+                  .attr("text-anchor", "middle")
+                  .attr("dominant-baseline", "middle")
+                  .text( (d,i)=>{return d.name;} )
+                  .transition()
+                  .duration(500)
+                  .attr("dx", (d,i)=>{return circle_x(i,new_data.length);} )
+                  .attr("dy", (d,i)=>{return circle_y(i,new_data.length);} );
+
+      }
+
+      function update_links( new_data, links ){
+
+                var lines = sampleSVG.selectAll("line")
+                .data(links);
+
+                lines.exit().remove();
+
+                lines.transition()
+                .duration(500)
+                .attr("x1", (d,i)=>{ return circle_x(d.source,new_data.length) })
+                .attr("y1", (d,i)=>{ return circle_y(d.source,new_data.length) })
+                .attr("x2", (d,i)=>{ return circle_x(d.dest,new_data.length) })
+                .attr("y2", (d,i)=>{ return circle_y(d.dest,new_data.length) })
+                .style("stroke", "rgb(6,120,155)");
+
+                lines.enter().append("line")
+                .transition()
+                .duration(500)
+                .attr("x1", (d,i)=>{ return circle_x(d.source,new_data.length) })
+                .attr("y1", (d,i)=>{ return circle_y(d.source,new_data.length) })
+                .attr("x2", (d,i)=>{ return circle_x(d.dest,new_data.length) })
+                .attr("y2", (d,i)=>{ return circle_y(d.dest,new_data.length) })
+                .style("stroke", "rgb(6,120,155)");
+
+      }
+
+
+  </script>
+<script src="simple-peer.js"></script>
+<script>
+
+var p = new Peer({ initiator: true, trickle: false })
+
+p.on('error', function (err) { console.log('error', err) })
+
+p.on('close', function () {
+  console.log('close');
+  if(window.confirm("Connection lost. Reload page?")){
+    window.location.reload();
+  }
+ })
+
+p.on('signal', function (data) {
+  monitorSet( data );
+  //document.querySelector('#outgoing').textContent = JSON.stringify(data)
+  console.log('SIGNAL', JSON.stringify(data))
+})
+
+
+p.on('connect', function () {
+  console.log('CONNECT')
+  p.send('whatever' + Math.random())
+})
+
+p.on('data', function (data) {
+  var o = JSON.parse(data);
+  console.log('data: ' + JSON.stringify(o.nodes));
+  update_nodes( o.nodes, o.links );
+  update_links( o.nodes, o.links );
+})
+
+function monitorSet(data){
+  $.ajax({
+    method: 'GET',
+    crossDomain: true,
+    url: '/monitor-set',
+    data: { msg: data }
+  })
+  .done((data)=>{
+    console.log('monitor-set', data);
+    p.signal( data[0] );
+    p.signal( data[1] );
+  })
+  .fail((data,error)=>{
+     //
+  });
+}
+
+</script>
+  </body>
+</html>
