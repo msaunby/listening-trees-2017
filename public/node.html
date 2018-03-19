@@ -20,10 +20,6 @@
 <script src="simple-peer.js"></script>
 <script>
 
-//var ctrlPeer;
-
-//var linkMediaPromise;
-//var linkMedia;
 var my_id;
 var my_state;
 var clickFn;
@@ -44,10 +40,7 @@ $(document).ready(function(){
           nodeConnect( my_state, my_id );
         }else if(my_state == "online"){
           window.location.reload();
-          //nodeConnect( state, my_id );
         }
-
-
     });
 
     $('#send').click(()=>{
@@ -59,6 +52,9 @@ $(document).ready(function(){
       }
     });
 
+// When online update server with state at low frequency.
+// In all other states, i.e. connected or negotiating, then
+// update more often.
     var updateTimer =  setInterval(()=>{
        var msg={};
         my_state = $("input[name='state']:checked").val();
@@ -67,6 +63,15 @@ $(document).ready(function(){
         }
         monitorSet(msg);
     }, 1000);
+
+    var onlineTimer =  setInterval(()=>{
+       var msg={};
+        my_state = $("input[name='state']:checked").val();
+        if(my_state == "online"){
+          msg={id:my_id, state:my_state}
+        }
+        monitorSet(msg);
+    }, 2000);
 
 });
 
@@ -79,7 +84,7 @@ function monitorSet(data){
     data: { msg: data }
   })
   .done((data)=>{
-    console.log('monitor-set', data);
+    //console.log('monitor-set', data);
     var o = JSON.parse(data);
     if(o.offer){
       console.log("GOT OFFER", o.connectRequest.from);
@@ -87,9 +92,12 @@ function monitorSet(data){
     }else if(o.answer){
       console.log("GOT ANSWER", o);
       linkPeer.signal(o.answer);
+    }else if(o.states){
+      if(o.states[my_id] != my_state){
+        console.log("REMOTE UPDATE OF STATE TO", o.states[my_id]);
+        setMyState(o.states[my_id]);
+      }
     }
-    //update_nodes( o.nodes, o.links );
-    //update_links( o.nodes, o.links );
   })
   .fail((data,error)=>{
     console.log('monitor-set FAIL', data);
@@ -135,10 +143,17 @@ function nodeConnect( state, id ){
   });
 }
 
+
+function setMyState(state){
+  my_state = state;
+  $("input[name='state']").val([state]);
+}
+
 function showRemoteStatus(state){
  $("#remote_status").text(state);
  if(state == "connected"){
-   $("input[name='state']").val(["connected"]);
+   //$("input[name='state']").val(["connected"]);
+   setMyState(state);
    nodeConnect( "connected", my_id );
  }else if(state == "disconnected"){
    window.location.reload();
@@ -188,53 +203,6 @@ function linkDataHandler( data ){
   console.log("LINK DATA HANDLER ", o);
 }
 
-/*
-function makeCtrlConnection( ctrl, connectMsg, dataHanderFn ){
-
-   function monitorSet(data){
-    $.ajax({
-      method: 'GET',
-      crossDomain: true,
-      url: '/monitor-set',
-      data: { msg: data }
-    })
-    .done((data)=>{
-      console.log('monitor-set', data);
-      p.signal( data[0] );
-      p.signal( data[1] );
-    })
-    .fail((data,error)=>{
-       //
-    });
-  }
-
-  var p = new Peer({ initiator: true, trickle: false });
-
-  p.on('error', function (err) { console.log('error', err) })
-
-  p.on('signal', function (data) {
-    if(ctrl){
-      ctrl.send( JSON.stringify({offer:data, connectRequest:connectMsg.connectRequest}) );
-    }else{
-      monitorSet( data );
-    }
-    console.log('SIGNAL', JSON.stringify(data))
-  })
-
-  p.on('connect', function () {
-    console.log('CONNECT')
-    p.send(JSON.stringify( connectMsg ));
-  })
-
-  p.on('data', function (data) {
-    dataHanderFn( data );
-    var o = JSON.parse(data);
-    console.log('data: ' + JSON.stringify(o.nodes));
-  })
-
-  return p;
-}
-*/
 
 function startLinkConnection( connectMsg){
 

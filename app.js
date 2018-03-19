@@ -30,7 +30,7 @@ var messages={};
 app.get('/monitor-set' ,function (req, res) {
   //monitorGet.refresh(req, res, benches);
   var msg = req.query['msg'];
-  var reply = JSON.stringify({nodes:benches.nodes,links:benches.links,states:benches.states});
+  var reply = JSON.stringify({nodes:benches.nodes,links:benches.links,states:benches.state});
   if(msg){
     //console.log("msg", msg);
     if(msg.connectRequest){
@@ -71,10 +71,20 @@ app.get('/node-connect' ,function (req, res) {
   var state = req.query['state'];
   console.log("node-connect id: " + id + ", state: " + state);
   if(id && state){
-    benches.setState(id, state);
+    benches.setState(id, state, false);
   }
-  //monitorGet.sendAll(JSON.stringify({nodes:benches.nodes,links:benches.links,states:benches.states}));
-  res.json(benches.states);
+  res.json(benches.state);
+});
+
+// This method is used for remote control of nodes.
+app.get('/node-remote-update' ,function (req, res) {
+  var id = req.query['id'];
+  var state = req.query['state'];
+  console.log("node-remote-update id: " + id + ", state: " + state);
+  if(id && state){
+    benches.setState(id, state, true);
+  }
+  res.json(benches.state);
 });
 
 

@@ -1,4 +1,4 @@
-var benches = {states:{}, nodes:[], links:[], addNode:null};
+var benches = {state:{}, remote:{}, nodes:[], links:[], addNode:null};
 
 benches.addNode = function(){
   benches.nodes.push({name:"No name"});
@@ -16,13 +16,14 @@ benches.getMsg = function(){
   return JSON.stringify({nodes:benches.nodes,links:benches.links});
 }
 
-benches.setState = function(key, value){
+benches.setState = function(key, value, set_remotely){
   console.log("setState", key)
-  benches.states[key] = value;
+  benches.state[key] = value;
+  benches.remote[key] = set_remotely;
   benches.nodes = [];
-  for( var p in benches.states){
-    console.log(p, benches.states[p]);
-    benches.nodes.push({name:p,state:benches.states[p]});
+  for( var p in benches.state){
+    console.log(p, benches.state[p]);
+    benches.nodes.push({name:p,state:benches.state[p],remote:benches.remote[p]});
   }
 }
 
