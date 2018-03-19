@@ -208,8 +208,38 @@ var links_data2 = [
 
 
   </script>
+<script src="simple-peer.js"></script>
 <script>
 
+var p = new Peer({ initiator: true, trickle: false })
+
+p.on('error', function (err) { console.log('error', err) })
+
+p.on('close', function () {
+  console.log('close');
+  if(window.confirm("Connection lost. Reload page?")){
+    window.location.reload();
+  }
+ })
+
+p.on('signal', function (data) {
+  monitorSet( data );
+  //document.querySelector('#outgoing').textContent = JSON.stringify(data)
+  console.log('SIGNAL', JSON.stringify(data))
+})
+
+
+p.on('connect', function () {
+  console.log('CONNECT')
+  p.send('whatever' + Math.random())
+})
+
+p.on('data', function (data) {
+  var o = JSON.parse(data);
+  console.log('data: ' + JSON.stringify(o.nodes));
+  update_nodes( o.nodes, o.links );
+  update_links( o.nodes, o.links );
+})
 
 function monitorSet(data){
   $.ajax({
@@ -219,21 +249,14 @@ function monitorSet(data){
     data: { msg: data }
   })
   .done((data)=>{
-    //console.log('monitor-set', data);
-    var o = JSON.parse(data);
-    update_nodes( o.nodes, o.links );
-    update_links( o.nodes, o.links );
+    console.log('monitor-set', data);
+    p.signal( data[0] );
+    p.signal( data[1] );
   })
   .fail((data,error)=>{
-    console.log('monitor-set FAIL', data);
      //
   });
 }
-
-
-var updateTimer =  setInterval(()=>{
-    monitorSet({});
-}, 1000);
 
 </script>
   </body>

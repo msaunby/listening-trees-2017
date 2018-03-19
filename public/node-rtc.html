@@ -9,8 +9,6 @@
     <form id="state_box">
       <input type="radio" name="state" value="online" /> online
       <input type="radio" name="state" value="ready" /> ready
-      <input type="radio" name="state" value="calling" /> calling
-      <input type="radio" name="state" value="answering" /> answering
       <input type="radio" name="state" value="connected" /> connected
   </form>
   <button id="send" >Send msg to peer</button>
@@ -20,14 +18,12 @@
 <script src="simple-peer.js"></script>
 <script>
 
-//var ctrlPeer;
-
+var ctrlPeer;
+//var linkPeer;
 //var linkMediaPromise;
 //var linkMedia;
 var my_id;
-var my_state;
 var clickFn;
-var linkPeer;
 
 // When page is (re)loaded reset state to "online"
 $(document).ready(function(){
@@ -35,14 +31,14 @@ $(document).ready(function(){
     my_id = location.hash;
 
     $("input[name='state']").val(["online"]);
-    //ctrlPeer = makeCtrlConnection( undefined, {}, myDataHandler);
+    ctrlPeer = makeCtrlConnection( undefined, {}, myDataHandler);
     nodeConnect( "online", my_id );
 
     $('#state_box').change(function(){
-        my_state = $("input[name='state']:checked").val();
-        if(my_state == "ready"){
-          nodeConnect( my_state, my_id );
-        }else if(my_state == "online"){
+        var state = $("input[name='state']:checked").val();
+        if(state == "ready"){
+          nodeConnect( state, my_id );
+        }else if(state == "online"){
           window.location.reload();
           //nodeConnect( state, my_id );
         }
@@ -58,49 +54,7 @@ $(document).ready(function(){
         console.log("NO CLICK FN");
       }
     });
-
-    var updateTimer =  setInterval(()=>{
-       var msg={};
-        my_state = $("input[name='state']:checked").val();
-        if(my_state != "online"){
-          msg={id:my_id, state:my_state}
-        }
-        monitorSet(msg);
-    }, 1000);
-
 });
-
-
-function monitorSet(data){
-  $.ajax({
-    method: 'GET',
-    crossDomain: true,
-    url: '/monitor-set',
-    data: { msg: data }
-  })
-  .done((data)=>{
-    console.log('monitor-set', data);
-    var o = JSON.parse(data);
-    if(o.offer){
-      console.log("GOT OFFER", o.connectRequest.from);
-      joinLinkConnection(o.connectRequest.from, o.offer);
-    }else if(o.answer){
-      console.log("GOT ANSWER", o);
-      linkPeer.signal(o.answer);
-    }
-    //update_nodes( o.nodes, o.links );
-    //update_links( o.nodes, o.links );
-  })
-  .fail((data,error)=>{
-    console.log('monitor-set FAIL', data);
-     //
-  });
-}
-
-function sendConnectRequest(data){
-   monitorSet(data);
-}
-
 
 function endMedia(){
   var track = linkMedia.getTracks()[0];
@@ -145,11 +99,24 @@ function showRemoteStatus(state){
  }
 }
 
+function findConnection( id, data ){
+  var ready=[];
+  for(var p in data){
+    console.log("find..", p);
+    if(data[p] == "ready"){
+      if(p != id){ ready.push(p);}
+    }
+  }
+  console.log("These nodes are ready", ready);
+  requestConnection(id, ready);
+}
+
+
 function requestConnection(me, dest){
   console.log("Requesting connection from " + me + " to " + dest, dest.length);
   // first make data connection to server
   if(dest.length){
-    linkPeer = startLinkConnection({connectRequest:{from:me, to:dest}});
+    linkPeer = makeLinkConnection( ctrlPeer, {connectRequest:{from:me, to:dest}});
   }
 }
 
@@ -188,7 +155,6 @@ function linkDataHandler( data ){
   console.log("LINK DATA HANDLER ", o);
 }
 
-/*
 function makeCtrlConnection( ctrl, connectMsg, dataHanderFn ){
 
    function monitorSet(data){
@@ -234,25 +200,6 @@ function makeCtrlConnection( ctrl, connectMsg, dataHanderFn ){
 
   return p;
 }
-*/
-
-function startLinkConnection( connectMsg){
-
-  console.log("INITIATING PEER LINK");
-
-   var constraints = { audio: true, video: false };
-
-
-   navigator.mediaDevices.getUserMedia(constraints).then((stream)=>{
-     console.log("GOT STREAM", stream);
-     document.getElementById("local_audio").srcObject = stream;
-     makeLinkConnectionInner( connectMsg, { initiator: true, stream: stream, trickle: false });
-   }).catch((reason)=>{
-     console.log("COULDN'T GET STREAM",reason);
-     makeLinkConnectionInner( connectMsg, { initiator: true, trickle: false });
-   });
-
-}
 
 
 function makeLinkConnection( ctrl, connectMsg){
@@ -273,7 +220,7 @@ function makeLinkConnection( ctrl, connectMsg){
 
 }
 
-function makeLinkConnectionInner( connectMsg, params ){
+function makeLinkConnectionInner( ctrl, connectMsg, params ){
 
   var p = new Peer(params);
   linkPeer = p;
@@ -285,7 +232,9 @@ function makeLinkConnectionInner( connectMsg, params ){
   p.on('error', function (err) { console.log('error', err) })
 
   p.on('signal', function (data) {
-      sendConnectRequest( {offer:data, connectRequest:connectMsg.connectRequest} );
+    //if(ctrl){
+      ctrl.send( JSON.stringify({offer:data, connectRequest:connectMsg.connectRequest}) );
+    //}
     console.log('SIGNAL', JSON.stringify(data))
   })
 
@@ -361,13 +310,14 @@ function joinLinkConnectionInner(from, offer, params){
 
   p.on('signal', function (data) {
     console.log('LP SIGNAL', JSON.stringify(data));
-    if(data.type == "answer"){
+    if(ctrlPeer){
+      if(data.type == "answer"){
         console.log('Sending LP answer');
-        //ctrlPeer.send( JSON.stringify({answer:data, replyTo:from}) );
-        sendConnectRequest(  {answer:data, replyTo:from} );
-    }else{
+        ctrlPeer.send( JSON.stringify({answer:data, replyTo:from}) );
+      }else{
         console.log("WHAT DO I DO WITH THIS?", data)
-    }
+      }
+   }
   })
 
   p.on('connect', function () {

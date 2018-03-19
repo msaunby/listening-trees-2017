@@ -8,9 +8,7 @@ var bodyParser = require('body-parser');
 var index = require('./routes/index');
 var users = require('./routes/users');
 
-//var monitorPeer = require('./monitor-peer');
-var monitorGet = require('./monitor-get');
-
+var monitorPeer = require('./monitor-peer');
 var benches = require('./benches');
 
 var fs = require('fs');
@@ -24,45 +22,19 @@ var server = require(isUseHTTPs ? 'https' : 'http');
 
 var app = express();
 
-var messages={};
-
 // My middleware
 app.get('/monitor-set' ,function (req, res) {
-  //monitorGet.refresh(req, res, benches);
+  monitorPeer.refresh(req, res, benches);
+
   var msg = req.query['msg'];
-  var reply = JSON.stringify({nodes:benches.nodes,links:benches.links,states:benches.states});
-  if(msg){
-    //console.log("msg", msg);
-    if(msg.connectRequest){
-      console.log("offer to", msg.connectRequest.to);
-      for(var m in  msg.connectRequest.to){
-        messages[ msg.connectRequest.to[m]] = msg;
-      }
-    }
-    else if(msg.answer){
-      console.log("answer for", msg.replyTo);
-      messages[ msg.replyTo ] = msg;
-    }
-    else if(msg.id){
-      console.log("id msg", msg);
-      if(messages[msg.id]){
-        reply = JSON.stringify(messages[msg.id]);
-        console.log("HAVE A MESSAGE FOR YOU", reply);
-        delete(messages[msg.id])
-      }
-    }
-    else{
-      console.log("other msg", msg);
-    }
-  }
-  res.json( reply );
+  console.log("monitor-set", msg);
 });
 
 app.get('/add-node' ,function (req, res) {
   var msg = req.query['msg'];
   benches.addNode();
   benches.addLink();
-  monitorGet.sendAll(JSON.stringify({nodes:benches.nodes,links:benches.links}));
+  monitorPeer.sendAll(JSON.stringify({nodes:benches.nodes,links:benches.links}));
   res.json({});
 });
 
@@ -73,7 +45,7 @@ app.get('/node-connect' ,function (req, res) {
   if(id && state){
     benches.setState(id, state);
   }
-  //monitorGet.sendAll(JSON.stringify({nodes:benches.nodes,links:benches.links,states:benches.states}));
+  monitorPeer.sendAll(JSON.stringify({nodes:benches.nodes,links:benches.links,states:benches.states}));
   res.json(benches.states);
 });
 

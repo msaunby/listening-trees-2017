@@ -1,6 +1,11 @@
 var Peer = require('simple-peer')
 var wrtc = require('wrtc')
 
+console.log("CHECKING WEBRTC");
+if (Peer.WEBRTC_SUPPORT) {
+  console.log("HAVE NATIVE SUPPORT");
+}
+
 var mypeer = {p:[], refresh:null};
 
 mypeer.refresh = function(req, res, benches){
