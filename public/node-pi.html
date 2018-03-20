@@ -96,7 +96,7 @@ function piButtonSet( state ){
   }
   if(state  && (my_state == "online")){
     setMyState("ready");
-  }else{
+  }else if(!state){
     // button released.
     console.log("BUTTON DATA", {state:state, piButton:state, my_state:my_state});
     setMyState("online");  // this will reload the page dropping any connection.
