@@ -23,6 +23,7 @@
 
 var my_id;
 var my_state;
+var disable_remote = false;
 var clickFn;
 var linkPeer;
 
@@ -40,8 +41,7 @@ $(document).ready(function(){
         if(my_state == "ready"){
           nodeConnect( my_state, my_id );
         }else if(my_state == "online"){
-          //window.location.reload();
-          alert("checkbox");
+          window.location.reload();
         }
     });
 
@@ -96,11 +96,12 @@ function piButtonSet( state ){
     piButton = state;
   }
   if(state  && (my_state == "online")){
+    disable_remote = true;
     setMyState("ready");
   }else if(!state){
     // button released.
     console.log("BUTTON DATA", {state:state, piButton:state, my_state:my_state});
-    //setMyState("online");  // this will reload the page dropping any connection.
+    setMyState("online");  // this will reload the page dropping any connection.
   }
 }
 
@@ -143,8 +144,10 @@ function monitorSet(data){
       linkPeer.signal(o.answer);
     }else if(o.states){
       if(o.states[my_id] != my_state){
-        console.log("REMOTE UPDATE OF STATE TO", o.states[my_id]);
-        setMyState(o.states[my_id]);
+        if(!disable_remote){
+          console.log("REMOTE UPDATE OF STATE TO", o.states[my_id]);
+          setMyState(o.states[my_id]);
+        }
       }
     }
   })
@@ -199,8 +202,8 @@ function setMyState(state){
   if(my_state == "ready"){
     nodeConnect( my_state, my_id );
   }else if(my_state == "online"){
-    alert("reload");
-    //window.location.reload();
+    //alert("reload");
+    window.location.reload();
   }
 }
 
