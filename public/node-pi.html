@@ -91,7 +91,10 @@ function piButtonSet( state ){
   if(state == piButton){
     return;
   }
-  else if(state  && (my_state == "online")){
+  else{
+    piButton = state;
+  }
+  if(state  && (my_state == "online")){
     setMyState("ready");
   }else{
     // button released.
