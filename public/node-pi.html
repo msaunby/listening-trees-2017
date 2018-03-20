@@ -85,6 +85,19 @@ $(document).ready(function(){
 
 });
 
+var piButton = false;
+
+function piButtonSet( state ){
+  if(state == piButton){
+    return;
+  }
+  else if(state  && (my_state == "online")){
+    setMyState("ready");
+  }else{
+    // button released.
+    setMyState("online");  // this will reload the page dropping any connection.
+  }
+}
 
 function piPost(data){
   $.ajax({
@@ -95,6 +108,11 @@ function piPost(data){
   })
   .done((data)=>{
     console.log("RPi", data);
+    if(data == "ok: button-down"){
+      piButtonSet( true );
+    }else if(data == "ok: button-up"){
+      piButtonSet( false );
+    }
   })
   .fail((data,error)=>{
     console.log('RPi FAIL', data);
