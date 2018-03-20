@@ -13,6 +13,7 @@ GPIO.setup(23, GPIO.IN, pull_up_down=GPIO.PUD_UP)#Button to GPIO23
 
 def readButton():
     ''' Returns True or False reflecting push button state.
+    True is open, False is closed. 
     '''
     return GPIO.input(23)
 
@@ -34,10 +35,10 @@ def index():
       print command
       if(command):
         if(command == "button"):
-          if readButton:
-              reply = "button-down"
-          else:
+          if readButton():
               reply = "button-up"
+          else:
+              reply = "button-down"
 
 # system control
 
