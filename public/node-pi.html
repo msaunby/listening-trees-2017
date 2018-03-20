@@ -14,7 +14,7 @@
       <input type="radio" name="state" value="connected" /> connected
   </form>
   <button id="send" >Send msg to peer</button>
-  <button id="pi">Check RPi</button>
+  <!-- <button id="pi">Check RPi</button> -->
   <audio controls id="local_audio"></audio>
   <audio controls id="remote_audio"></audio>
 <h3>Status:<span id="remote_status">unknown</span></h3>
@@ -53,9 +53,11 @@ $(document).ready(function(){
       }
     });
 
+    /*
     $('#pi').click(()=>{
       piPost("button");
     });
+   */
 
 // When online update server with state at low frequency.
 // In all other states, i.e. connected or negotiating, then
@@ -64,18 +66,21 @@ $(document).ready(function(){
        var msg={};
         my_state = $("input[name='state']:checked").val();
         if(my_state != "online"){
-          msg={id:my_id, state:my_state}
+          msg={id:my_id, state:my_state};
+          monitorSet(msg);
+          piPost("button");
         }
-        monitorSet(msg);
+
     }, 1000);
 
     var onlineTimer =  setInterval(()=>{
        var msg={};
         my_state = $("input[name='state']:checked").val();
         if(my_state == "online"){
-          msg={id:my_id, state:my_state}
+          msg={id:my_id, state:my_state};
+          monitorSet(msg);
+          piPost("button");
         }
-        monitorSet(msg);
     }, 2000);
 
 });
