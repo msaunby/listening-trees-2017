@@ -40,7 +40,8 @@ $(document).ready(function(){
         if(my_state == "ready"){
           nodeConnect( my_state, my_id );
         }else if(my_state == "online"){
-          window.location.reload();
+          //window.location.reload();
+          alert("checkbox");
         }
     });
 
@@ -198,7 +199,8 @@ function setMyState(state){
   if(my_state == "ready"){
     nodeConnect( my_state, my_id );
   }else if(my_state == "online"){
-    window.location.reload();
+    alert("reload");
+    //window.location.reload();
   }
 }
 
@@ -209,7 +211,8 @@ function showRemoteStatus(state){
    setMyState(state);
    nodeConnect( "connected", my_id );
  }else if(state == "disconnected"){
-   window.location.reload();
+   //window.location.reload();
+   setMyState(online);
  }
 }
 
