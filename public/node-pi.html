@@ -194,7 +194,7 @@ function nodeConnect( state, id ){
 
 function setMyState(state){
   my_state = state;
-  $("input[name='state']").val([state]);
+  $("input[name='state']").val([my_state]);
   if(my_state == "ready"){
     nodeConnect( my_state, my_id );
   }else if(my_state == "online"){
