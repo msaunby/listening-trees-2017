@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+  </head>
+  <body>
+    <script src="libs/jquery.min.js"></script>
+    <pre id="outgoing"></pre>
+    <div id="viz"></div>
+    <form id="state_box">
+      <input type="radio" name="state" value="online" /> online
+      <input type="radio" name="state" value="ready" /> ready
+      <input type="radio" name="state" value="calling" /> calling
+      <input type="radio" name="state" value="answering" /> answering
+      <input type="radio" name="state" value="connected" /> connected
+  </form>
+  <button id="send" >Send msg to peer</button>
+  <button id="pi">Check RPi</button>
+  <audio controls id="local_audio"></audio>
+  <audio controls id="remote_audio"></audio>
+<h3>Status:<span id="remote_status">unknown</span></h3>
+<script src="simple-peer.js"></script>
+<script>
+
+var my_id;
+var my_state;
+var clickFn;
+var linkPeer;
+
+// When page is (re)loaded reset state to "online"
+$(document).ready(function(){
+
+    my_id = location.hash;
+
+    $("input[name='state']").val(["online"]);
+    //ctrlPeer = makeCtrlConnection( undefined, {}, myDataHandler);
+    nodeConnect( "online", my_id );
+
+    $('#state_box').change(function(){
+        my_state = $("input[name='state']:checked").val();
+        if(my_state == "ready"){
+          nodeConnect( my_state, my_id );
+        }else if(my_state == "online"){
+          window.location.reload();
+        }
+    });
+
+    $('#send').click(()=>{
+      console.log("CLICKETY CLICK");
+      if(clickFn){
+        clickFn();
+      }else{
+        console.log("NO CLICK FN");
+      }
+    });
+
+    $('#pi').click(()=>{
+      piPost("button");
+    });
+
+// When online update server with state at low frequency.
+// In all other states, i.e. connected or negotiating, then
+// update more often.
+    var updateTimer =  setInterval(()=>{
+       var msg={};
+        my_state = $("input[name='state']:checked").val();
+        if(my_state != "online"){
+          msg={id:my_id, state:my_state}
+        }
+        monitorSet(msg);
+    }, 1000);
+
+    var onlineTimer =  setInterval(()=>{
+       var msg={};
+        my_state = $("input[name='state']:checked").val();
+        if(my_state == "online"){
+          msg={id:my_id, state:my_state}
+        }
+        monitorSet(msg);
+    }, 2000);
+
+});
+
+
+function piPost(data){
+  $.ajax({
+    method: 'POST',
+    crossDomain: true,
+    url: 'http://localhost:8080/',
+    data: {command: data}
+  })
+  .done((data)=>{
+    console.log("RPi", data);
+  })
+  .fail((data,error)=>{
+    console.log('RPi FAIL', data);
+     //
+  });
+}
+
+function monitorSet(data){
+  $.ajax({
+    method: 'GET',
+    crossDomain: true,
+    url: '/monitor-set',
+    data: { msg: data }
+  })
+  .done((data)=>{
+    //console.log('monitor-set', data);
+    var o = JSON.parse(data);
+    if(o.offer){
+      console.log("GOT OFFER", o.connectRequest.from);
+      joinLinkConnection(o.connectRequest.from, o.offer);
+    }else if(o.answer){
+      console.log("GOT ANSWER", o);
+      linkPeer.signal(o.answer);
+    }else if(o.states){
+      if(o.states[my_id] != my_state){
+        console.log("REMOTE UPDATE OF STATE TO", o.states[my_id]);
+        setMyState(o.states[my_id]);
+      }
+    }
+  })
+  .fail((data,error)=>{
+    console.log('monitor-set FAIL', data);
+     //
+  });
+}
+
+function sendConnectRequest(data){
+   monitorSet(data);
+}
+
+
+function endMedia(){
+  var track = linkMedia.getTracks()[0];
+  track.stop();
+  //alert("END MEDIA");
+}
+
+function nodeConnect( state, id ){
+  $.ajax({
+    method: 'GET',
+    crossDomain: true,
+    url: '/node-connect',
+    data: { id: id, state: state }
+  })
+  .done((data)=>{
+    console.log('node-connect', data);
+    if( state == "ready" ){
+      console.log("CHECKING FOR OTHER READY NODES");
+      data[id] = "caller";
+      var ready_nodes = [];
+      for(var n in data){
+        if(data[n] == "ready"){
+          ready_nodes.push(n);
+        }
+      }
+      console.log("ready_nodes", ready_nodes);
+      requestConnection( id, ready_nodes );
+    }
+  })
+  .fail((data,error)=>{
+     //
+  });
+}
+
+
+function setMyState(state){
+  my_state = state;
+  $("input[name='state']").val([state]);
+  if(my_state == "ready"){
+    nodeConnect( my_state, my_id );
+  }else if(my_state == "online"){
+    window.location.reload();
+  }
+}
+
+function showRemoteStatus(state){
+ $("#remote_status").text(state);
+ if(state == "connected"){
+   //$("input[name='state']").val(["connected"]);
+   setMyState(state);
+   nodeConnect( "connected", my_id );
+ }else if(state == "disconnected"){
+   window.location.reload();
+ }
+}
+
+function requestConnection(me, dest){
+  console.log("Requesting connection from " + me + " to " + dest, dest.length);
+  // first make data connection to server
+  if(dest.length){
+    linkPeer = startLinkConnection({connectRequest:{from:me, to:dest}});
+  }
+}
+
+function myDataHandler( data ){
+  var o = JSON.parse(data);
+  console.log("MY DATA HANDLER ", o);
+  //if(o.replyTo){
+    //console.log("HEY REPLY TO!");
+  if(o.replyTo == my_id){
+      console.log("HEY REPLY TO!");
+      linkPeer.signal(o.answer);
+      return;
+  }
+  if(o.connectRequest){
+    console.log("LINK CONNECT REQUEST FROM", o.connectRequest.from);
+    if(o.connectRequest.from == my_id){
+      console.log("IT'S FROM ME!");
+      return;
+    }else{
+      // Check if it was intended for me.
+      console.log("AM I HERE?", o.connectRequest.to);
+      if(o.connectRequest.to.includes(my_id)){
+        console.log("YES I AM!");
+        if(o.offer){
+          linkPeer = joinLinkConnection(o.connectRequest.from, o.offer);
+        }else{
+          console.log("ERROR - LINK REQUEST BUT NO OFFER");
+        }
+      }
+    }
+  }
+}
+
+function linkDataHandler( data ){
+  var o = JSON.parse(data);
+  console.log("LINK DATA HANDLER ", o);
+}
+
+
+function startLinkConnection( connectMsg){
+
+  console.log("INITIATING PEER LINK");
+
+   var constraints = { audio: true, video: false };
+
+
+   navigator.mediaDevices.getUserMedia(constraints).then((stream)=>{
+     console.log("GOT STREAM", stream);
+     document.getElementById("local_audio").srcObject = stream;
+     makeLinkConnectionInner( connectMsg, { initiator: true, stream: stream, trickle: false });
+   }).catch((reason)=>{
+     console.log("COULDN'T GET STREAM",reason);
+     makeLinkConnectionInner( connectMsg, { initiator: true, trickle: false });
+   });
+
+}
+
+
+function makeLinkConnection( ctrl, connectMsg){
+
+  console.log("INITIATING PEER LINK");
+
+   var constraints = { audio: true, video: false };
+
+
+   navigator.mediaDevices.getUserMedia(constraints).then((stream)=>{
+     console.log("GOT STREAM", stream);
+     document.getElementById("local_audio").srcObject = stream;
+     makeLinkConnectionInner( ctrl, connectMsg, { initiator: true, stream: stream, trickle: false });
+   }).catch((reason)=>{
+     console.log("COULDN'T GET STREAM",reason);
+     makeLinkConnectionInner( ctrl, connectMsg, { initiator: true, trickle: false });
+   });
+
+}
+
+function makeLinkConnectionInner( connectMsg, params ){
+
+  var p = new Peer(params);
+  linkPeer = p;
+
+  clickFn = function(){
+    p.send(JSON.stringify("CLICK MESSAGE (I)"));
+  }
+
+  p.on('error', function (err) { console.log('error', err) })
+
+  p.on('signal', function (data) {
+      sendConnectRequest( {offer:data, connectRequest:connectMsg.connectRequest} );
+    console.log('SIGNAL', JSON.stringify(data))
+  })
+
+  p.on('connect', function () {
+    console.log('CONNECT')
+    p.send(JSON.stringify( connectMsg ));
+  })
+
+  p.on('data', function (data) {
+    myDataHandler( data );
+    //dataHanderFn( data );
+    //var o = JSON.parse(data);
+    //console.log('data: ' + JSON.stringify(o.nodes));
+  })
+
+
+  p.on('stream', function (stream) {
+    var remoteAudio = document.getElementById("remote_audio");
+    try{
+      remoteAudio.srcObject = stream;
+    } catch (error) {
+      remoteAudio.src = URL.createObjectURL(stream);
+    }
+    remoteAudio.play();
+    // See https://developer.mozilla.org/en-US/docs/Web/Guide/Events/Media_events
+    remoteAudio.addEventListener("suspend", (e)=>{
+      console.log("MEDIA EVENT SUS", e);
+      showRemoteStatus("waiting");
+    });
+    remoteAudio.addEventListener("playing", (e)=>{console.log("MEDIA EVENT PLA", e);
+      showRemoteStatus("connected");
+    });
+    remoteAudio.addEventListener("ended", (e)=>{console.log("MEDIA EVENT END", e);
+      showRemoteStatus("disconnected");
+    });
+  })
+
+
+  return p;
+}
+
+function joinLinkConnection(from, offer){
+
+ console.log("JOINING LINK");
+
+  var constraints = { audio: true, video: false };
+
+  navigator.mediaDevices.getUserMedia(constraints).then((stream)=>{
+    console.log("GOT STREAM", stream);
+    document.getElementById("local_audio").srcObject = stream;
+    joinLinkConnectionInner(from, offer, { initiator: false, trickle: false, stream: stream });
+  }).catch((reason)=>{
+    console.log("COULDN'T GET STREAM",reason);
+    joinLinkConnectionInner(from, offer, { initiator: false, trickle: false });
+  });
+}
+
+
+function joinLinkConnectionInner(from, offer, params){
+
+  var p = new Peer( params );
+
+  // see https://github.com/feross/simple-peer
+
+  clickFn = function(){
+    p.send(JSON.stringify("CLICK MESSAGE"));
+  }
+
+  console.log("RESPONDING TO OFFER", offer);
+  p.signal(offer);
+
+  p.on('error', function (err) { console.log('LP error', err) })
+
+  p.on('signal', function (data) {
+    console.log('LP SIGNAL', JSON.stringify(data));
+    if(data.type == "answer"){
+        console.log('Sending LP answer');
+        //ctrlPeer.send( JSON.stringify({answer:data, replyTo:from}) );
+        sendConnectRequest(  {answer:data, replyTo:from} );
+    }else{
+        console.log("WHAT DO I DO WITH THIS?", data)
+    }
+  })
+
+  p.on('connect', function () {
+    console.log('LP CONNECT')
+    p.send(JSON.stringify( "HELLO FRIEND!  Let's chat." ));
+  })
+
+  p.on('data', function (data) {
+    myDataHandler( data );
+    //var o = JSON.parse(data);
+    //console.log('data: ', o);
+  })
+
+  p.on('stream', function (stream) {
+    var remoteAudio = document.getElementById("remote_audio");
+    try{
+      remoteAudio.srcObject = stream;
+    } catch (error) {
+      remoteAudio.src = URL.createObjectURL(stream);
+    }
+    remoteAudio.play();
+    // See https://developer.mozilla.org/en-US/docs/Web/Guide/Events/Media_events
+    remoteAudio.addEventListener("suspend", (e)=>{
+      console.log("MEDIA EVENT SUS", e);
+      showRemoteStatus("waiting");
+    });
+    remoteAudio.addEventListener("playing", (e)=>{console.log("MEDIA EVENT PLA", e);
+      showRemoteStatus("connected");
+    });
+    remoteAudio.addEventListener("ended", (e)=>{console.log("MEDIA EVENT END", e);
+      showRemoteStatus("disconnected");
+    });
+  })
+
+  return p;
+}
+
+</script>
+  </body>
+</html>
