@@ -286,7 +286,6 @@ function startLinkConnection( connectMsg){
 function makeLinkConnectionInner( connectMsg, params ){
 
   var p = new Peer(params);
-  linkPeer = p;
 
   clickFn = function(){
     p.send(JSON.stringify("CLICK MESSAGE (I)"));
@@ -300,9 +299,8 @@ function makeLinkConnectionInner( connectMsg, params ){
   })
 
   p.on('connect', function () {
-    console.log('CONNECT');
-    showRemoteStatus("waiting");
-    //p.send(JSON.stringify( connectMsg ));
+    console.log('CONNECT')
+    p.send(JSON.stringify( "HELLO FRIEND!  Let's chat." ));
   })
 
   p.on('data', function (data) {
@@ -344,10 +342,12 @@ function joinLinkConnection(from, offer){
   navigator.mediaDevices.getUserMedia(constraints).then((stream)=>{
     console.log("GOT STREAM", stream);
     document.getElementById("local_audio").srcObject = stream;
-    joinLinkConnectionInner({from:from, offer:offer}, { initiator: false, trickle: false, stream: stream });
+    var peer = joinLinkConnectionInner({from:from, offer:offer}, { initiator: false, trickle: false, stream: stream });
+    peer.signal(offer);
   }).catch((reason)=>{
     console.log("COULDN'T GET STREAM",reason);
-    joinLinkConnectionInner({from:from, offer:offer}, { initiator: false, trickle: false });
+    var peer = joinLinkConnectionInner({from:from, offer:offer}, { initiator: false, trickle: false });
+    peer.signal(offer);
   });
 }
 
@@ -360,10 +360,6 @@ function joinLinkConnectionInner(request, params){
   var p = new Peer( params );
 
   // see https://github.com/feross/simple-peer
-
-  if(offer){
-    p.signal(offer);
-  }
 
   clickFn = function(){
     p.send(JSON.stringify("CLICK MESSAGE"));
@@ -383,7 +379,7 @@ function joinLinkConnectionInner(request, params){
   })
 
   p.on('connect', function () {
-    console.log('LP CONNECT')
+    console.log('CONNECT')
     p.send(JSON.stringify( "HELLO FRIEND!  Let's chat." ));
   })
 
