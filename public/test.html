@@ -231,7 +231,6 @@ function monitorSet(data){
     data: { msg: data }
   })
   .done((data)=>{
-    console.log('monitor-set', data);
     var o = JSON.parse(data);
     update_nodes( o.nodes, o.links );
     update_links( o.nodes, o.links );

@@ -14,7 +14,7 @@
       <input type="radio" name="state" value="connected" /> connected
   </form>
   <button id="send" >Send msg to peer</button>
-  <button id="pi">Check RPi</button>
+  <!-- <button id="pi">Check RPi</button> -->
   <audio controls id="local_audio"></audio>
   <audio controls id="remote_audio"></audio>
 <h3>Status:<span id="remote_status">unknown</span></h3>
@@ -23,6 +23,7 @@
 
 var my_id;
 var my_state;
+var disable_remote = false;
 var clickFn;
 var linkPeer;
 
@@ -53,33 +54,58 @@ $(document).ready(function(){
       }
     });
 
-    $('#pi').click(()=>{
-      piPost("button");
-    });
 
 // When online update server with state at low frequency.
 // In all other states, i.e. connected or negotiating, then
 // update more often.
+var isPi = false;
+
+
     var updateTimer =  setInterval(()=>{
        var msg={};
         my_state = $("input[name='state']:checked").val();
         if(my_state != "online"){
-          msg={id:my_id, state:my_state}
+          msg={id:my_id, state:my_state};
+          monitorSet(msg);
+          if(isPi){
+            piPost("button");
+          }
         }
-        monitorSet(msg);
+
     }, 1000);
 
     var onlineTimer =  setInterval(()=>{
        var msg={};
         my_state = $("input[name='state']:checked").val();
         if(my_state == "online"){
-          msg={id:my_id, state:my_state}
+          msg={id:my_id, state:my_state};
+          monitorSet(msg);
+          if(isPi){
+            piPost("button");
+          }
         }
-        monitorSet(msg);
     }, 2000);
 
 });
 
+var piButton = false;
+
+function piButtonSet( state ){
+  if(state == piButton){
+    return;
+  }
+  else{
+    piButton = state;
+  }
+  if(state  && (my_state == "online")){
+    disable_remote = true;
+    setMyState("ready");
+  }else if(!state){
+    // button released.
+    console.log("BUTTON DATA", {state:state, piButton:state, my_state:my_state});
+    setMyState("online");  // this will reload the page dropping any connection.
+  }
+}
 
 function piPost(data){
   $.ajax({
@@ -90,6 +116,11 @@ function piPost(data){
   })
   .done((data)=>{
     console.log("RPi", data);
+    if(data == "ok: button-down"){
+      piButtonSet( true );
+    }else if(data == "ok: button-up"){
+      piButtonSet( false );
+    }
   })
   .fail((data,error)=>{
     console.log('RPi FAIL', data);
@@ -115,8 +146,10 @@ function monitorSet(data){
       linkPeer.signal(o.answer);
     }else if(o.states){
       if(o.states[my_id] != my_state){
-        console.log("REMOTE UPDATE OF STATE TO", o.states[my_id]);
-        setMyState(o.states[my_id]);
+        if(!disable_remote){
+          console.log("REMOTE UPDATE OF STATE TO", o.states[my_id]);
+          setMyState(o.states[my_id]);
+        }
       }
     }
   })
@@ -167,10 +200,11 @@ function nodeConnect( state, id ){
 
 function setMyState(state){
   my_state = state;
-  $("input[name='state']").val([state]);
+  $("input[name='state']").val([my_state]);
   if(my_state == "ready"){
     nodeConnect( my_state, my_id );
   }else if(my_state == "online"){
+    //alert("reload");
     window.location.reload();
   }
 }
@@ -182,7 +216,8 @@ function showRemoteStatus(state){
    setMyState(state);
    nodeConnect( "connected", my_id );
  }else if(state == "disconnected"){
-   window.location.reload();
+   //window.location.reload();
+   setMyState(online);
  }
 }
 
@@ -248,29 +283,9 @@ function startLinkConnection( connectMsg){
 
 }
 
-
-function makeLinkConnection( ctrl, connectMsg){
-
-  console.log("INITIATING PEER LINK");
-
-   var constraints = { audio: true, video: false };
-
-
-   navigator.mediaDevices.getUserMedia(constraints).then((stream)=>{
-     console.log("GOT STREAM", stream);
-     document.getElementById("local_audio").srcObject = stream;
-     makeLinkConnectionInner( ctrl, connectMsg, { initiator: true, stream: stream, trickle: false });
-   }).catch((reason)=>{
-     console.log("COULDN'T GET STREAM",reason);
-     makeLinkConnectionInner( ctrl, connectMsg, { initiator: true, trickle: false });
-   });
-
-}
-
 function makeLinkConnectionInner( connectMsg, params ){
 
   var p = new Peer(params);
-  linkPeer = p;
 
   clickFn = function(){
     p.send(JSON.stringify("CLICK MESSAGE (I)"));
@@ -285,14 +300,11 @@ function makeLinkConnectionInner( connectMsg, params ){
 
   p.on('connect', function () {
     console.log('CONNECT')
-    p.send(JSON.stringify( connectMsg ));
+    p.send(JSON.stringify( "HELLO FRIEND!  Let's chat." ));
   })
 
   p.on('data', function (data) {
     myDataHandler( data );
-    //dataHanderFn( data );
-    //var o = JSON.parse(data);
-    //console.log('data: ' + JSON.stringify(o.nodes));
   })
 
 
@@ -330,15 +342,20 @@ function joinLinkConnection(from, offer){
   navigator.mediaDevices.getUserMedia(constraints).then((stream)=>{
     console.log("GOT STREAM", stream);
     document.getElementById("local_audio").srcObject = stream;
-    joinLinkConnectionInner(from, offer, { initiator: false, trickle: false, stream: stream });
+    var peer = joinLinkConnectionInner({from:from, offer:offer}, { initiator: false, trickle: false, stream: stream });
+    peer.signal(offer);
   }).catch((reason)=>{
     console.log("COULDN'T GET STREAM",reason);
-    joinLinkConnectionInner(from, offer, { initiator: false, trickle: false });
+    var peer = joinLinkConnectionInner({from:from, offer:offer}, { initiator: false, trickle: false });
+    peer.signal(offer);
   });
 }
 
+// request = {from:from, offer:offer}
+function joinLinkConnectionInner(request, params){
 
-function joinLinkConnectionInner(from, offer, params){
+  var offer = request.offer;
+  var from = request.from;
 
   var p = new Peer( params );
 
@@ -347,9 +364,6 @@ function joinLinkConnectionInner(from, offer, params){
   clickFn = function(){
     p.send(JSON.stringify("CLICK MESSAGE"));
   }
-
-  console.log("RESPONDING TO OFFER", offer);
-  p.signal(offer);
 
   p.on('error', function (err) { console.log('LP error', err) })
 
@@ -365,14 +379,12 @@ function joinLinkConnectionInner(from, offer, params){
   })
 
   p.on('connect', function () {
-    console.log('LP CONNECT')
+    console.log('CONNECT')
     p.send(JSON.stringify( "HELLO FRIEND!  Let's chat." ));
   })
 
   p.on('data', function (data) {
     myDataHandler( data );
-    //var o = JSON.parse(data);
-    //console.log('data: ', o);
   })
 
   p.on('stream', function (stream) {
