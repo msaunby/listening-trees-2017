@@ -19,5 +19,5 @@ def readButton():
 
 
 while True:
-    print( "button on pin " + str(button_pin) + " reads " + str(readButton())
+    print( "button on pin " + str(button_pin) + " reads " + str(readButton()) )
     time.sleep(1.5)
