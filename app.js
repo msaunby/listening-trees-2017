@@ -91,7 +91,7 @@ app.get('/node-remote-update' ,function (req, res) {
 // Create an HTTP service.
 //http.createServer(app).listen(80);
 // Create an HTTPS service identical to the HTTP service.
-server.createServer(options, app).listen(port);
+//server.createServer(options, app).listen(port);
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
